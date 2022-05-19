@@ -3,12 +3,13 @@ import random
 import re
 from matplotlib import pyplot
 from PyQt5 import QtWidgets, uic
+import cv2
 
 # desplegamos
 app = QtWidgets.QApplication([])
 
 # Cargamos ventanas
-interfaz = uic.loadUi("principal.ui")
+interfaz = uic.loadUi("vistas/principal.ui")
 interfazError = uic.loadUi("vistas/error.ui")
 
 # lista para guardar los individuos generados y cruzados
@@ -19,7 +20,7 @@ individuos_Cruza = []
 individous_Resultantes_deCruza = []
 argMutados1 = []
 argMutados2 = []
-
+generacion = 1
 
 # Obtenemos datos de las cajas de texto
 def obtenerDatos():
@@ -92,21 +93,19 @@ def calcularValores(a, b, prec):
     cantidadGen = int(interfaz.txtGen.text())
     for inicio in range(0, cantidadGen):
         generarIndiviuos(solucion - 1, bits,inicio+1)
-        individuos_Generados = []
-        arregloSeleccion = []
-        argAleatorios = []
-        individuos_Cruza = []
-        individous_Resultantes_deCruza = []
-        argMutados1 = []
-        argMutados2 = []
-        individuos_pDescendencia = []
-        valores_deX = []
-        valores_deY = []
-        argpara_X = []
-        argpara_Y = []
-        arreglo_valoresMaximo = []
-        arreglo_valoresMinimo = []
-
+        individuos_Generados.clear()
+        arregloSeleccion.clear()
+        argAleatorios.clear()
+        individuos_Cruza.clear()
+        individous_Resultantes_deCruza.clear()
+        argMutados1.clear()
+        argMutados2.clear()
+        individuos_pDescendencia.clear()
+        valores_deX.clear()
+        valores_deY.clear()
+        argpara_X.clear()
+        argpara_Y.clear()
+    generarVideo(cantidadGen)
 
 
 # metodo para generar y guardar individuos de la población
@@ -124,77 +123,59 @@ def generarIndiviuos(tope, potencia, inicio):
             individuos_Generados.append("0" * cantidad_ceros + individuo)
         else:
             individuos_Generados.append(individuo)
-    realizarSeleccion(potencia, inicio)
+    realizarSeleccion(potencia-1, inicio)
     print("----------------------------------------------")
 
 
-# metodo para seleccionar individuos
-def realizarSeleccion(potencia, inicio):
-    for i in range(int(interfaz.txtPo.text())):
-        binario = ""
-        for j in range(potencia):
-            aleatorio = random.randint(0, 1)
-            binario += str(aleatorio)
-        arregloSeleccion.append(binario)
-    aleatorio = 0
-    for k in arregloSeleccion:
-        if aleatorio <= 4:
-            argAleatorios.append(arregloSeleccion[aleatorio])
-        else:
-            break
-        aleatorio += 1
-    for vuelta in argAleatorios:
-        argMutados1.append(vuelta)
-    calcularCruza(potencia - 1, inicio)
-
-
-# Metodo para hacer la cruza de la poblacion, la probabilidad de desc y calcular el bit en el que serán cortados
-def calcularCruza(bits, inicio):
+# Metodo para hacer la seleccion
+def realizarSeleccion(bits, inicio):
     n1 = 0
     n2 = 1
+    print("Estamos en seleccion------------------------------")
+    print("GENERADOS en seleccion",individuos_Generados)
     while n1 < len(individuos_Generados):
         auxBinario1 = individuos_Generados[n1]
         while n2 < len(individuos_Generados):
             auxBinario2 = individuos_Generados[n2]
             individuos_Cruza.append(
-                (auxBinario1, auxBinario2, round(random.uniform(0, 1), 3), random.randint(1, bits)))
+                (auxBinario1, auxBinario2, random.randint(1, bits)))
             n2 += 1
         n1 += 1
         n2 = n1 + 1
-    argMutados2 = individuos_Cruza
+    for x in individuos_Cruza:
+        argMutados2.append(x)
     validarPromedioDescendencia()
-    realizarMutacion(inicio)
+    realizarCruza(inicio)
 
-
+#metodo para verificar individuos con PD
 individuos_pDescendencia = []
 def validarPromedioDescendencia():
-    print("llega a verificar primedio de descendencia")
+    print("Estamos en PromedioDescendencia-----------")
+    print("lista de la CRUZA", individuos_Cruza)
     p_Desendencia = (float(interfaz.txtPD.text())) / 100
     for index in individuos_Cruza:
-        if index[2] <= p_Desendencia:
+        nrandom = (random.randint(1, 100))/100
+        if nrandom <= p_Desendencia:
             individuos_pDescendencia.append(index)
+        else:
+            print("SE va: ", index)
 
 
-# metodo para el intercambio de bits en los individuos cruzados
-def realizarMutacion(inicio):
-    print("llegó a la mutacion")
-    for index in individuos_Cruza:
+# metodo para hacer la cruza de los bits entre las parejas
+def realizarCruza(inicio):
+    print("----------llegó a realizarCruza----------------")
+    for index in individuos_pDescendencia:
         arregloAux1 = index[0]
         arregloAux2 = index[1]
-        cortarArregloAux1 = arregloAux1[0:index[3]]
-        cortarArregloAux2 = arregloAux2[0:index[3]]
-        res1 = arregloAux1[index[3]:]
-        res2 = arregloAux2[index[3]:]
-        individous_Resultantes_deCruza.append(((cortarArregloAux1 + res2), (random.randint(1, 100) / 100),
-                                               (cortarArregloAux2 + res1), (random.randint(1, 100) / 100)))
-    arregloMutados = []
-    pm_Individuo = (float(interfaz.txtPMI.text())) / 100
-    for i in individous_Resultantes_deCruza:
-        if i[1] <= pm_Individuo:
-            arregloMutados.append((i[0], i[1]))
-        if i[3] <= pm_Individuo:
-            arregloMutados.append((i[2], i[3]))
-    mutarGen(arregloMutados, inicio)
+        cortarArregloAux1 = arregloAux1[0:index[2]]
+        cortarArregloAux2 = arregloAux2[0:index[2]]
+        res1 = arregloAux1[index[2]:]
+        res2 = arregloAux2[index[2]:]
+        individous_Resultantes_deCruza.append(((cortarArregloAux1 + res2),
+                                               (random.randint(1, 100) / 100),
+                                               (cortarArregloAux2 + res1),
+                                               (random.randint(1, 100) / 100)))
+    realizarMutacion(individous_Resultantes_deCruza, inicio)
 
 
 # metodo para convertir el numero binario a decimal
@@ -205,49 +186,82 @@ def convertir_Bin_Dec(bin):
     return auxDec
 
 
-# dar limpieza y mutación de gen
-def mutarGen(mutados, inicio):
-    print("-----metodo para hacer la limpieza-----")
+# mutación de gen
+def realizarMutacion(individuos, inicio):
+    print("-----metodo para mutar gen-----")
     binariosLista = []
     strAuxiliar = ""
+    mutados = list()
+    for itera in individuos:
+        mutados.append(list(itera))
     pm_Gen = (float(interfaz.txtPMG.text())) / 100
-    for index in mutados:
-        arregloBin = index[0]
-        for j in arregloBin:
-            numAleatorio = (random.randint(0, 100)) / 100
-            if numAleatorio <= pm_Gen:
-                if j == '0':
-                    strAuxiliar += '1'
-                elif j == "1":
-                    strAuxiliar += '0'
-            else:
-                strAuxiliar += j
-        binariosLista.append(strAuxiliar)
-        strAuxiliar = ""
-    if len(binariosLista) > 0:
-        realizarLimpieza(binariosLista, inicio)
+    pm_Individuo = (float(interfaz.txtPMI.text())) / 100
+    for i in mutados:
+        try:
+            if i[1] <= pm_Individuo:
+                    arregloBin = i[0]
+                    for j in arregloBin:
+                        numAleatorio = (random.randint(1, 100)) / 100
+                        if numAleatorio <= pm_Gen:
+                            if j == '0':
+                                strAuxiliar += '1'
+                            elif j == "1":
+                                strAuxiliar += '0'
+                        else:
+                            strAuxiliar += j
+                    i[0] = strAuxiliar
+                    strAuxiliar = ""
+
+            if i[3] <= pm_Individuo:
+                    arregloBin = i[2]
+                    for j in arregloBin:
+                        numAleatorio = (random.randint(1, 100)) / 100
+                        if numAleatorio <= pm_Gen:
+                            if j == '0':
+                                strAuxiliar += '1'
+                            elif j == "1":
+                                strAuxiliar += '0'
+                        else:
+                            strAuxiliar += j
+                    i[2] = strAuxiliar
+                    strAuxiliar = ""
+        except ValueError:
+            print("Error ", ValueError)
+    for k in mutados:
+        binariosLista.append(k[0])
+    realizarLimpieza(binariosLista, inicio)
 
 
 # aqui realizamos la limpieza segun el promedio
 def realizarLimpieza(listaBinarios, inicio):
+    print("inicia limpieza-----------------------------")
     a = int(interfaz.txta.text())
     b = int(interfaz.txtb.text())
     prec = float(interfaz.txtPrec.text())
     # calculamos numero de soluciones
     solucion = ((b - a) / prec) + 1
     numDecimales = []
+    print("lista de bin", listaBinarios)
     for individuo in listaBinarios:
         if convertir_Bin_Dec(individuo) <= solucion:
             numDecimales.append(convertir_Bin_Dec(individuo))
-    calcularPromedio(numDecimales)
+    listaAux = list()
+    for iniciales in individuos_Generados:
+        listaAux.append(convertir_Bin_Dec(iniciales))
+    for x in numDecimales:
+        listaAux.append(x)
+    print("termina realiza limp---------------")
+    calcularPromedio(listaAux)
     generar_historico(inicio)
-    #realizarPoda()
+    realizarPoda(listaAux, inicio)
 
 # metodo para generar la grafica que contiene mejor, peor y promedio
 def generar_historico(inicio):
     print(inicio)
     if inicio == int(interfaz.txtGen.text()):
+        print("ESTA GENERANDO HISTORICO")
         print("si entro a historico")
+        print(arg_Historico)
         auxuliar = []
         argPeor = []
         argPromedio = []
@@ -259,6 +273,7 @@ def generar_historico(inicio):
             argPeor.append(i[2])
             iter += 1
             auxuliar.append(iter)
+        figura = pyplot.figure(figsize=(12, 7))
         pyplot.title(f"Gráfico Histórico")
         pyplot.plot(auxuliar, argMejor, label="Mejor")
         pyplot.plot(auxuliar, argPromedio, label="Promedio")
@@ -268,22 +283,21 @@ def generar_historico(inicio):
 
 # para datos para mejor, peor y promedio
 def calcularPromedio(decimales):
-    calcularX(decimales)
-    calcularY()
-    arregloAux_Y = argpara_Y
-    arregloAux_Y.sort(reverse=True)
-    mejor = arregloAux_Y[0]
-    peor = arregloAux_Y[len(arregloAux_Y)-1]
-    print("peor", peor)
-    print("mejor", mejor)
-    #for i in decimales:
-    #    if i < peor:
-    #        peor = i
-    #    if i > mejor:
-    #        mejor = i
-    promedio = (peor + mejor) / 2
-    print("individuo promedio calculado", promedio)
-    guardar_pmm(mejor, promedio, peor)
+    try:
+        print("CALCULANDO MEJOR, PROMEDIO Y PEOR---------------------")
+        calcularX(decimales, 1)
+        calcularY()
+        arregloAux_Y = argpara_Y
+        arregloAux_Y.sort(reverse=True)
+        mejor = arregloAux_Y[0]
+        peor = arregloAux_Y[len(arregloAux_Y)-1]
+        print("peor", peor)
+        print("mejor", mejor)
+        promedio = (peor + mejor) / 2
+        print("individuo promedio calculado", promedio)
+        guardar_pmm(mejor, promedio, peor)
+    except ValueError:
+        print(ValueError)
 
 
 # guardamos en un arreglo el mejor, promedio y peor
@@ -292,126 +306,136 @@ def guardar_pmm(mejor, promedio, peor):
     arg_Historico.append((mejor, promedio, peor))
 
 
-def realizarPoda():
-    print("llega a poda")
+def realizarPoda(arreglo, inicio):
+    print("INICIA METODO DE PODA-------------------------")
     mutadosSt = []
     mutadosNd = []
-    for index in argMutados1:
+    for index in arreglo:
         mutadosSt.append((index, (random.randint(1, 100) / 100)))
-    for j in argMutados2:
-        mutadosSt.append((j[0], (random.randint(1, 100) / 100)))
-        mutadosSt.append((j[1], (random.randint(1, 100) / 100)))
     # calculamos probabilidad de poda
     probabilidadPoda = int(interfaz.txtPm.text()) / len(mutadosSt)
-    for k in mutadosSt:
-        if k[1] <= probabilidadPoda:
+    if len(mutadosSt) > int(interfaz.txtPm.text()):
+        for k in mutadosSt:
+            if k[1] <= probabilidadPoda:
+                mutadosNd.append(k)
+    else:
+        for k in mutadosSt:
             mutadosNd.append(k)
-    conversionXY(mutadosNd)
+    print("fin De poda----------------------------------")
+    conversionXY(mutadosNd, inicio)
 
 
 # arreglos para guardar valores calculados de X & Y
 valores_deX = []
 valores_deY = []
-
 # metodo auxiliar para rescatar valores a graficar
 argpara_X = []
 argpara_Y = []
-
-
-def conversionXY(arregloNd):
-    numDec = []
-    for i in arregloNd:
-        aux = i[0]
-        numDec.append(convertir_Bin_Dec(aux))
-    calcularX(numDec)
+def conversionXY(arregloNd, inicio):
+    print("Estamos en conversionXY-----------------------------")
+    calcularX(arregloNd, 2)
     calcularY()
-    for i in argpara_X:
-        valores_deX.append(i)
-    for y in argpara_Y:
-        valores_deY.append(y)
-    verificarRadioBtns()
+    listaXY = list()
+    count = 0
+    print("arreglo de X:", argpara_X)
+    for x in range(len(argpara_X)):
+        listaXY.append([x, argpara_Y[count]])
+        count += 1
+    verificarRadioBtns(listaXY, inicio)
 
 
 # calculamos valores de X
-def calcularX(decimales):
+def calcularX(decimales, tipo):
     argpara_X.clear()
+    print("CALCUAR X----------------------------")
     a = int(interfaz.txta.text())
     precision = float(interfaz.txtPrec.text())
+    print("ARREGLO DE DECIAMLES:", decimales)
     for itera in decimales:
-        valor_x = a + itera * precision
+        if tipo == 1 :
+            valor_x = a + (itera * precision)
+        else:
+            valor_x = a + (itera[0] * precision)
         argpara_X.append(valor_x)
+    print("termina calcular x------------------------------")
 
 
 # calculamos valores de Y en la funcion dada
 def calcularY():
     argpara_Y.clear()
+    print("CALCULANDO Y-----------------------------------")
     for y in argpara_X:
         valor_y = (1.50 * math.cos(1.50 * y) * math.sin(1.50 * y)) - (0.75 * math.cos(0.75 * y))
         argpara_Y.append(valor_y)
 
+    print("termina calcular y------------------------------------")
 
-def verificarRadioBtns():
+#verificamos si se va a calcular minimo o máximo
+def verificarRadioBtns(listXY, inicio):
+    auxiliar = True
+    tipo = 0
+    print("valores", listXY)
     if interfaz.rbtnMin.isChecked():
+        tipo =1
+        listXY.sort(key= lambda xy: xy[1])
         print("Seleccion = calcular minimo")
-        #calcularMinimo(1)
     elif interfaz.rbtnMax.isChecked():
+        tipo =2
         print("Seleccion = calcular máximo")
-        #calcularMaximo(2)
+        listXY.sort(key=lambda xy: xy[1], reverse=True)
     else:
+        auxiliar = False
         interfaz.lblError.setText("Seleccione minimo o maximo")
-
-
-# metodo para calcular minimo de la funcion
-arreglo_valoresMinimo = []
-def calcularMinimo(indicador):
-    print("Inicia metodo para minimo")
-    contador = 0
-    while contador < len(valores_deX):
-        arreglo_valoresMinimo.append((valores_deX[contador], valores_deY[contador]))
-        contador += 1
-    # ordenamos arreglo para valopres del maximo
-    arreglo_valoresMinimo.sort(key=lambda valy: valy[1])
-    cantidadGen = int(interfaz.txtGen.text())
-    for i in range(0, cantidadGen):
-        graficar_xy(i, arreglo_valoresMinimo, indicador)
-
-
-# metodo para realizar el máximo
-arreglo_valoresMaximo = []
-def calcularMaximo(indicador):
-    print("Inicia metodo para maximo")
-    contador = 0
-    while contador < len(valores_deX):
-        arreglo_valoresMaximo.append((valores_deX[contador], valores_deY[contador]))
-        contador += 1
-    # ordenamos arreglo para valopres del maximo
-    arreglo_valoresMaximo.sort(key=lambda valx: valx[1], reverse=True)
-    cantidadGen = int(interfaz.txtGen.text())
-    for i in range(0, cantidadGen):
-        graficar_xy(i, arreglo_valoresMaximo, indicador)
+    if len(listXY) > int(interfaz.txtPm.text()):
+        cantidadborrar = len(listXY) - int(interfaz.txtPm.text())
+        for borrar in range(cantidadborrar):
+            listXY.pop()
+    print("valores2", listXY)
+    if auxiliar == True:
+        graficar_xy(listXY, tipo, inicio)
 
 
 # vamos agraficar los valores de x, y
-def graficar_xy(numero, argMax, indicador):
-    print("empieza metodo graficar xy ")
+def graficar_xy(argMax, indicador, generacion):
+    print("empieza metodo graficar xy------------------------- ")
     valorx = []
     valory = []
+    print("ARREGLO DE MAXIMOS",argMax)
     for i in argMax:
         valorx.append(i[0])
         valory.append(i[1])
+    figura2 = pyplot.figure(figsize=(12, 7))
     pyplot.scatter(valorx, valory)
-    pyplot.xlim(-8, 70)
-    pyplot.ylim(-8, 70)
-    print("llega antes del nombre")
+    pyplot.xlim(-1, 11)
+    pyplot.ylim(-3,3)
+    pyplot.title(f"Gráfica de la generacion#{generacion}")
     if indicador == 1:
-        pyplot.title(f"Gráfica generacion#{numero + 1}")
-        pyplot.savefig(f"graficas_minimo/Generacion#{numero + 1}.png")
+        pyplot.savefig(f"graficas_minimo/Generacion#{generacion}.png")
     elif indicador == 2:
-        pyplot.title(f"Gráfica de generacion#{numero + 1}")
-        pyplot.savefig(f"graficas_maximo/Generacion#{numero + 1}.png")
-    pyplot.show()
+        pyplot.savefig(f"graficas_maximo/Generacion#{generacion}.png")
+    pyplot.close()
 
 
+#metodo para el video del comportamiento
+def generarVideo(nGeneracion):
+    print("Generando video")
+    rutaVideo = ""
+    rutaImagen = ""
+    if interfaz.rbtnMin.isChecked():
+        rutaVideo = "video_Minimo/Comportamiento_Minimo.mp4"
+        rutaImagen = "graficas_minimo/Generacion#"
+    elif interfaz.rbtnMax.isChecked():
+        rutaVideo = "video_Maximo/Comportamiento_Maximo.mp4"
+        rutaImagen = "graficas_maximo/Generacion#"
+    imagenesGeneradas = list()
+    for vuelta in range(nGeneracion):
+        nombreImg = rutaImagen+(str(vuelta+1))+".png"
+        imagenesGeneradas.append(cv2.imread(nombreImg))
+    alto, ancho = imagenesGeneradas[-1].shape[:2]
+    video = cv2.VideoWriter(rutaVideo, cv2.VideoWriter_fourcc(*"mp4v"), 2, (ancho, alto))
+    for itera in imagenesGeneradas:
+        video.write(itera)
+    video.release()
 
 # mostramos error por datos invalidos
 def mostrarErrorLabel(mensaje):
@@ -431,7 +455,6 @@ def regresar():
 # meotodo para salir con boton
 def salir():
     app.exit()
-
 
 # definicion de botones
 interfaz.ejecutar.clicked.connect(obtenerDatos)
